@@ -73,26 +73,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 3. 투표하기 버튼 이벤트
+    const GAS_URL = 'https://docs.google.com/spreadsheets/d/1efnYrljVvACPfVrPMS8NlMJS15CLRnikrkKZLnaaUfI/edit?usp=sharing'; // ◀여기에 [웹 앱 URL]을 붙여넣으세요. 구글 시트 공유 주소(docs.google.com/...)는 작동하지 않습니다.
+
     voteBtn.addEventListener('click', async () => {
         if (!selectedMenu || userHasVoted) return;
 
         const menuKoreanName = getMenuKoreanName(selectedMenu);
 
-        // Vercel Serverless Function(백엔드 API)로 투표 기록 안전하게 전송 (Vercel Best Practice)
-        try {
-            fetch('/api/vote', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ menu: menuKoreanName })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if(data.success) console.log('성공적으로 시트에 투표가 저장되었습니다.');
-                else console.error('시트 저장 에러:', data.error);
-            })
-            .catch(error => console.error('통신 에러:', error));
-        } catch (err) {
-            console.error('요청 생성 실패:', err);
+        // 구글 앱스 스크립트로 투표 내역 전송 (GET 방식)
+        if (GAS_URL) {
+            fetch(`${GAS_URL}?menu=${encodeURIComponent(menuKoreanName)}`)
+                .then(response => console.log('시트에 투표 기록 전송 완료'))
+                .catch(error => console.error('시트 기록 실패:', error));
         }
 
         // 로컬 수치 가산 (즉각적인 시각 피드백 유지)
@@ -148,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 최대값 탐색 (1위 노출용)
         let maxVotes = -1;
         let winnerKey = '';
-        
+
         for (const [key, value] of Object.entries(votes)) {
             if (value > maxVotes) {
                 maxVotes = value;
@@ -182,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getMenuKoreanName(key) {
-        switch(key) {
+        switch (key) {
             case 'bibimbap': return '비빔밥';
             case 'donkatsu': return '돈까스';
             case 'gukbap': return '국밥';
