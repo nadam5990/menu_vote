@@ -12,34 +12,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let userHasVoted = false;
     let lastVotedMenu = null; // 투표했던 메뉴 기록
 
-    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1efnYrljVvACPfVrPMS8NlMJS15CLRnikrkKZLnaaUfI/gviz/tq?tqx=out:json';
-
     // 구글 시트 투표수 동기화 함수
     async function fetchVoteData() {
         try {
-            const response = await fetch(SHEET_URL);
-            const text = await response.text();
-            const jsonStr = text.match(/\{.*\}/)[0];
-            const data = JSON.parse(jsonStr);
-            const rows = data.table.rows;
+            // 변경됨: 기존 구글 시트 URL에서 Vercel API 통신으로 변경
+            const response = await fetch('/api/vote');
+            if (!response.ok) throw new Error('API 응답에 문제가 있습니다.');
+            const data = await response.json();
 
-            // 로컬 투표수 초기화
-            votes.bibimbap = 0;
-            votes.donkatsu = 0;
-            votes.gukbap = 0;
-            votes.salad = 0;
-
-            if (rows && rows.length > 0) {
-                rows.forEach(row => {
-                    if (row.c && row.c[1] && row.c[1].v) {
-                        const menuValue = row.c[1].v.toString().trim();
-                        if (menuValue === '비빔밥') votes.bibimbap++;
-                        else if (menuValue === '돈까스') votes.donkatsu++;
-                        else if (menuValue === '국밥') votes.gukbap++;
-                        else if (menuValue === '샐러드') votes.salad++;
-                    }
-                });
-            }
+            // 로컬 투표수 초기화 (서버 응답을 그대로 덮어씀)
+            votes.bibimbap = data.bibimbap || 0;
+            votes.donkatsu = data.donkatsu || 0;
+            votes.gukbap = data.gukbap || 0;
+            votes.salad = data.salad || 0;
 
             totalVotes = Object.values(votes).reduce((a, b) => a + b, 0);
             updateCharts(); // 화면 갱신
@@ -73,47 +58,74 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 3. 투표하기 버튼 이벤트
-    const GAS_URL = 'https://docs.google.com/spreadsheets/d/1efnYrljVvACPfVrPMS8NlMJS15CLRnikrkKZLnaaUfI/edit?usp=sharing'; // ◀여기에 [웹 앱 URL]을 붙여넣으세요. 구글 시트 공유 주소(docs.google.com/...)는 작동하지 않습니다.
-
     voteBtn.addEventListener('click', async () => {
         if (!selectedMenu || userHasVoted) return;
 
         const menuKoreanName = getMenuKoreanName(selectedMenu);
 
-        // 구글 앱스 스크립트로 투표 내역 전송 (GET 방식)
-        if (GAS_URL) {
-            fetch(`${GAS_URL}?menu=${encodeURIComponent(menuKoreanName)}`)
-                .then(response => console.log('시트에 투표 기록 전송 완료'))
-                .catch(error => console.error('시트 기록 실패:', error));
+        // 변경됨: /api/vote 백엔드로 투표 기록 전송
+        try {
+            const response = await fetch('/api/vote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'vote', menu: menuKoreanName })
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || '서버 전송 오류');
+            }
+            console.log('시트에 투표 기록 전송 완료');
+
+            // 로컬 수치 가산 (성공 시에만)
+            votes[selectedMenu]++;
+            totalVotes++;
+            userHasVoted = true;
+            lastVotedMenu = selectedMenu;
+
+            // UI 갱신 (선택 방지)
+            voteBtn.disabled = true;
+            voteBtn.innerText = '투표 완료됨';
+            voteBtn.style.background = '#10b981'; // 초록색 완료
+            revoteBtn.style.display = 'flex'; // 다시 투표 활성
+
+            cards.forEach(c => c.style.cursor = 'not-allowed');
+
+            // 결과 업데이트
+            updateCharts();
+            setupVisualFeedback('🎉 투표가 성공적으로 완료되었습니다!');
+
+        } catch (error) {
+            console.error('시트 기록 실패:', error);
+            alert('투표 기록 중 에러가 발생했습니다: ' + error.message);
         }
-
-        // 로컬 수치 가산 (즉각적인 시각 피드백 유지)
-        votes[selectedMenu]++;
-        totalVotes++;
-        userHasVoted = true;
-        lastVotedMenu = selectedMenu;
-
-        // UI 갱신 (선택 방지)
-        voteBtn.disabled = true;
-        voteBtn.innerText = '투표 완료됨';
-        voteBtn.style.background = '#10b981'; // 초록색 완료
-        revoteBtn.style.display = 'flex'; // 다시 투표 활성
-
-        cards.forEach(c => c.style.cursor = 'not-allowed');
-
-        // 결과 업데이트
-        updateCharts();
-        setupVisualFeedback('🎉 투표가 성공적으로 완료되었습니다!');
     });
 
     // 3.1 다시 투표하기 버튼 이벤트
-    revoteBtn.addEventListener('click', () => {
+    revoteBtn.addEventListener('click', async () => {
         if (!userHasVoted) return;
 
-        // 이전 투표 차감
-        if (lastVotedMenu && votes[lastVotedMenu] > 0) {
-            votes[lastVotedMenu]--;
-            totalVotes--;
+        const menuKoreanName = getMenuKoreanName(lastVotedMenu);
+
+        // 이전 투표 차감 (서버로 취소 요청 전송)
+        if (lastVotedMenu) {
+            try {
+                const response = await fetch('/api/vote', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'cancel', menu: menuKoreanName })
+                });
+                if (response.ok) {
+                    // 서버에서 취소가 성공한 경우에만 로컬 수치 차감
+                    if (votes[lastVotedMenu] > 0) {
+                        votes[lastVotedMenu]--;
+                        totalVotes--;
+                    }
+                } else {
+                    console.error('취소 요청 실패');
+                }
+            } catch (error) {
+                console.error('취소 요청 중 오류:', error);
+            }
         }
 
         userHasVoted = false;

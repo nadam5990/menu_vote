@@ -1,0 +1,12 @@
+{
+  "name": "lunch-vote",
+  "version": "1.0.0",
+  "description": "Lunch Menu Voting App",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "google-spreadsheet": "^4.1.1"
+  }
+}
