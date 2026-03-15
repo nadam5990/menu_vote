@@ -1,4 +1,5 @@
 const { GoogleSpreadsheet } = require('google-spreadsheet');
+const { JWT } = require('google-auth-library');
 
 // 환경 변수 검증 (Vercel 설정에서 필수로 넣어야 함)
 const { GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY, GOOGLE_SHEET_ID } = process.env;
@@ -17,15 +18,17 @@ module.exports = async function handler(req, res) {
             return res.status(500).json({ error: '서버 환경 변수가 설정되지 않았습니다.' });
         }
 
-        // 인증 및 시트 초기화
-        const doc = new GoogleSpreadsheet(GOOGLE_SHEET_ID);
         // Vercel의 환경 변수 입력 특성 상 줄바꿈 문자가 escaped 되어 있을 수 있으므로 치환해줌
         const privateKey = GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
 
-        await doc.useServiceAccountAuth({
-            client_email: GOOGLE_SERVICE_ACCOUNT_EMAIL,
-            private_key: privateKey,
+        // 인증 및 시트 초기화 (google-spreadsheet v4 방식)
+        const serviceAccountAuth = new JWT({
+            email: GOOGLE_SERVICE_ACCOUNT_EMAIL,
+            key: privateKey,
+            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
         });
+
+        const doc = new GoogleSpreadsheet(GOOGLE_SHEET_ID, serviceAccountAuth);
         await doc.loadInfo();
         
         // 첫 번째 시트를 사용한다고 가정 (Index 0)
