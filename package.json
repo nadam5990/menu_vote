@@ -1,0 +1,9 @@
+{
+  "name": "lunch-voting-dashboard",
+  "version": "1.0.0",
+  "description": "Lunch Menu Voting App (Vercel + Google Sheets Integration)",
+  "dependencies": {
+    "google-auth-library": "^9.6.3",
+    "google-spreadsheet": "^4.1.1"
+  }
+}

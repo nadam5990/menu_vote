@@ -1,16 +1,53 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. 초기 득표 수 상태
+    // 1. 초기 득표 수 상태 (시트에서 읽어옴)
     const votes = {
-        bibimbap: Math.floor(Math.random() * 10) + 5,
-        donkatsu: Math.floor(Math.random() * 10) + 12,
-        gukbap: Math.floor(Math.random() * 10) + 10,
-        salad: Math.floor(Math.random() * 10) + 4
+        bibimbap: 0,
+        donkatsu: 0,
+        gukbap: 0,
+        salad: 0
     };
 
-    let totalVotes = Object.values(votes).reduce((a, b) => a + b, 0);
+    let totalVotes = 0;
     let selectedMenu = null;
     let userHasVoted = false;
     let lastVotedMenu = null; // 투표했던 메뉴 기록
+
+    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1efnYrljVvACPfVrPMS8NlMJS15CLRnikrkKZLnaaUfI/gviz/tq?tqx=out:json';
+
+    // 구글 시트 투표수 동기화 함수
+    async function fetchVoteData() {
+        try {
+            const response = await fetch(SHEET_URL);
+            const text = await response.text();
+            const jsonStr = text.match(/\{.*\}/)[0];
+            const data = JSON.parse(jsonStr);
+            const rows = data.table.rows;
+
+            // 로컬 투표수 초기화
+            votes.bibimbap = 0;
+            votes.donkatsu = 0;
+            votes.gukbap = 0;
+            votes.salad = 0;
+
+            if (rows && rows.length > 0) {
+                rows.forEach(row => {
+                    if (row.c && row.c[1] && row.c[1].v) {
+                        const menuValue = row.c[1].v.toString().trim();
+                        if (menuValue === '비빔밥') votes.bibimbap++;
+                        else if (menuValue === '돈까스') votes.donkatsu++;
+                        else if (menuValue === '국밥') votes.gukbap++;
+                        else if (menuValue === '샐러드') votes.salad++;
+                    }
+                });
+            }
+
+            totalVotes = Object.values(votes).reduce((a, b) => a + b, 0);
+            updateCharts(); // 화면 갱신
+
+        } catch (error) {
+            console.error('구글 시트 로딩 실패:', error);
+        }
+    }
 
     const cards = document.querySelectorAll('.menu-card');
     const voteBtn = document.getElementById('vote-btn');
@@ -36,10 +73,29 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 3. 투표하기 버튼 이벤트
-    voteBtn.addEventListener('click', () => {
+    voteBtn.addEventListener('click', async () => {
         if (!selectedMenu || userHasVoted) return;
 
-        // 투표 수 가산
+        const menuKoreanName = getMenuKoreanName(selectedMenu);
+
+        // Vercel Serverless Function(백엔드 API)로 투표 기록 안전하게 전송 (Vercel Best Practice)
+        try {
+            fetch('/api/vote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ menu: menuKoreanName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) console.log('성공적으로 시트에 투표가 저장되었습니다.');
+                else console.error('시트 저장 에러:', data.error);
+            })
+            .catch(error => console.error('통신 에러:', error));
+        } catch (err) {
+            console.error('요청 생성 실패:', err);
+        }
+
+        // 로컬 수치 가산 (즉각적인 시각 피드백 유지)
         votes[selectedMenu]++;
         totalVotes++;
         userHasVoted = true;
@@ -160,19 +216,9 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => feedback.remove(), 2800);
     }
 
-    // 5. 실시간 투표 시뮬레이션 (렌더 가속)
-    setInterval(() => {
-        const menuKeys = Object.keys(votes);
-        const randomMenu = menuKeys[Math.floor(Math.random() * menuKeys.length)];
-        
-        // 50% 확률로 무작위 투표 유입 발생
-        if (Math.random() > 0.5) {
-            votes[randomMenu]++;
-            totalVotes++;
-            updateCharts();
-        }
-    }, 2000);
+    // 5. 구글 시트 투표수 주기적 동기화 (10초 주기)
+    setInterval(fetchVoteData, 10000);
 
-    // Initial draw
-    updateCharts();
+    // 초기 시트 데이터 로드
+    fetchVoteData();
 });
