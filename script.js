@@ -72,7 +72,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || '서버 전송 오류');
+                // 백엔드에서 내려주는 상세 메시지가 있다면 함께 표시
+                const errorMessage = errorData.details 
+                    ? `${errorData.error} : ${errorData.details}` 
+                    : (errorData.error || '서버 전송 오류');
+                throw new Error(errorMessage);
             }
             console.log('시트에 투표 기록 전송 완료');
 
