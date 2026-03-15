@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>오늘의 점심 메뉴 투표 🍲</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <div class="dashboard">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-title">
+                <h1>오늘의 점심 선택</h1>
+                <p>지금 가장 먹고 싶은 메뉴에 투표하세요!</p>
+            </div>
+            <div class="live-status">
+                <div class="live-indicator"></div>
+                <span>LIVE</span>
+                <span id="voter-count" style="margin-left: 0.5rem; color: #9ca3af; font-size: 0.8rem;">(사용자 12명 참여 중)</span>
+            </div>
+        </header>
+
+        <!-- Left: Voting Section -->
+        <section class="voting-section">
+            <h2>메뉴 선택</h2>
+            <div class="menu-grid" id="menu-grid">
+                <!-- Card 1: Bibimbap -->
+                <div class="menu-card" data-menu="bibimbap">
+                    <div class="menu-image-container">
+                        <img src="images/bibimbap.png" alt="비빔밥">
+                    </div>
+                    <div class="menu-info">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3>비빔밥</h3>
+                            <div class="checkbox-visual"></div>
+                        </div>
+                        <p>부담없이 즐기는 영양 가득 한 끼</p>
+                    </div>
+                </div>
+
+                <!-- Card 2: Donkatsu -->
+                <div class="menu-card" data-menu="donkatsu">
+                    <div class="menu-image-container">
+                        <img src="images/donkatsu.png" alt="돈까스">
+                    </div>
+                    <div class="menu-info">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3>돈까스</h3>
+                            <div class="checkbox-visual"></div>
+                        </div>
+                        <p>겉바속촉, 두툼하고 바삭한 일식 돈까스</p>
+                    </div>
+                </div>
+
+                <!-- Card 3: Gukbap -->
+                <div class="menu-card" data-menu="gukbap">
+                    <div class="menu-image-container">
+                        <img src="images/gukbap.png" alt="국밥">
+                    </div>
+                    <div class="menu-info">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3>국밥</h3>
+                            <div class="checkbox-visual"></div>
+                        </div>
+                        <p>속까지 따뜻해지는 든든하고 깊은 맛</p>
+                    </div>
+                </div>
+
+                <!-- Card 4: Salad -->
+                <div class="menu-card" data-menu="salad">
+                    <div class="menu-image-container">
+                        <img src="images/salad.png" alt="샐러드">
+                    </div>
+                    <div class="menu-info">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3>샐러드</h3>
+                            <div class="checkbox-visual"></div>
+                        </div>
+                        <p>신선하고 가벼운 웰빙 가득 보울</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="vote-action-container">
+                <button id="vote-btn" class="vote-button" disabled>메뉴를 선택해주세요</button>
+                <button id="revote-btn" class="revote-button" style="display: none;">🔄 다시 투표하기</button>
+            </div>
+        </section>
+
+        <!-- Right: Results Section -->
+        <section class="results-section">
+            <h2>실시간 투표 현황</h2>
+            <div class="charts-container" id="charts-container">
+                <!-- Chart 1: Bibimbap -->
+                <div class="chart-item" data-menu="bibimbap">
+                    <div class="chart-label">
+                        <span>비빔밥</span>
+                        <div class="chart-stats">
+                            <span class="vote-percentage">0%</span>
+                            <span class="vote-count">(0표)</span>
+                        </div>
+                    </div>
+                    <div class="chart-bar-container">
+                        <div class="chart-bar" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Chart 2: Donkatsu -->
+                <div class="chart-item" data-menu="donkatsu">
+                    <div class="chart-label">
+                        <span>돈까스</span>
+                        <div class="chart-stats">
+                            <span class="vote-percentage">0%</span>
+                            <span class="vote-count">(0표)</span>
+                        </div>
+                    </div>
+                    <div class="chart-bar-container">
+                        <div class="chart-bar" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Chart 3: Gukbap -->
+                <div class="chart-item" data-menu="gukbap">
+                    <div class="chart-label">
+                        <span>국밥</span>
+                        <div class="chart-stats">
+                            <span class="vote-percentage">0%</span>
+                            <span class="vote-count">(0표)</span>
+                        </div>
+                    </div>
+                    <div class="chart-bar-container">
+                        <div class="chart-bar" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Chart 4: Salad -->
+                <div class="chart-item" data-menu="salad">
+                    <div class="chart-label">
+                        <span>샐러드</span>
+                        <div class="chart-stats">
+                            <span class="vote-percentage">0%</span>
+                            <span class="vote-count">(0표)</span>
+                        </div>
+                    </div>
+                    <div class="chart-bar-container">
+                        <div class="chart-bar" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Banner winning -->
+            <div id="winner-banner" class="winner-banner" style="display: none;">
+                <div class="winner-icon">👑</div>
+                <div class="winner-info">
+                    <h4>현재 1위: <span id="winner-name">돈까스</span></h4>
+                    <p>가장 많은 득표수를 기록하고 있습니다!</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Script -->
+    <script src="script.js"></script>
+</body>
+</html>
