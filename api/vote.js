@@ -34,6 +34,14 @@ module.exports = async function handler(req, res) {
         // 첫 번째 시트를 사용한다고 가정 (Index 0)
         const sheet = doc.sheetsByIndex[0];
 
+        // 빈 시트일 경우 대비 강제로 헤더를 넣어줍니다. 
+        // 이렇게 하면 "No values in the header row" 에러를 완벽 차단할 수 있습니다.
+        try {
+            await sheet.loadHeaderRow();
+        } catch (e) {
+            await sheet.setHeaderRow(['타임스탬프', '메뉴']);
+        }
+
         // ----------------------------------------------------
         // GET 요청: 현재 전체 투표 현황을 읽어서 반환
         // ----------------------------------------------------
@@ -49,13 +57,18 @@ module.exports = async function handler(req, res) {
 
             // B열 데이터 (메뉴명) 확인 (시트의 컬럼명에 따라 "메뉴" 로 가정)
             rows.forEach(row => {
-               // 1열(A): 타임스탬프, 2열(B): 메뉴 라고 가정
-               // 최신 google-spreadsheet 패키지는 헤더명 기반 `row.get('헤더명')` 사용을 권장하지만
-               // 범용성을 위해 row._rawData 로 접근하거나 _rawData가 없으면 다른 방식 (보통 row.메뉴)
-               
-               // 구글폼 연동 시트라면 "선택한 메뉴" 또는 "메뉴" 등의 헤더를 가질 확률이 높음
-               // 시트를 직접 만든다면 "메뉴" 라고 헤더를 지정
-               const menuValue = (row.get('메뉴') || row.get('선택한 메뉴') || (row._rawData ? row._rawData[1] : null))?.toString().trim();
+               let menuValue = null;
+               const _raw = row._rawData || [];
+               try {
+                   menuValue = (row.get('메뉴') || row.get('선택한 메뉴'))?.toString().trim();
+               } catch (e) {
+                   // 헤더 파싱 실패 시 원본 데이터 배열 사용
+               }
+
+               if (!menuValue && _raw.length > 0) {
+                   // 두 번째 열(index 1)이 있으면 그걸 사용, 1열밖에 없으면 첫번째 열 사용
+                   menuValue = _raw.length >= 2 ? _raw[1]?.toString().trim() : _raw[0]?.toString().trim();
+               }
                
                if (menuValue === '비빔밥') votes.bibimbap++;
                else if (menuValue === '돈까스') votes.donkatsu++;
@@ -74,14 +87,8 @@ module.exports = async function handler(req, res) {
             const { action, menu } = req.body;
 
             if (action === 'vote' && menu) {
-                // 새로운 행 추가 (타임스탬프, 메뉴)
-                // 만약 취소 기능을 구현하려면 시트에 고유 ID를 부여해야 하나, 
-                // 가장 간단한 방법은 취소 시 '취소' 행을 추가하거나 기존 행을 찾아 지우는 것.
-                // 편의상 행 추가만 구현 (구글 폼 방식과 유사)
-                await sheet.addRow({
-                    '타임스탬프': new Date().toISOString(),
-                    '메뉴': menu
-                });
+                // 새로운 행 추가 시 Object 대신 Array를 사용하여 헤더 매칭 오류 원천 차단
+                await sheet.addRow([new Date().toISOString(), menu]);
                 return res.status(200).json({ success: true, message: '투표가 기록되었습니다.' });
             } 
             else if (action === 'cancel' && menu) {
@@ -90,7 +97,16 @@ module.exports = async function handler(req, res) {
                 
                 // 뒤에서부터 탐색하여 하나 삭제
                 for (let i = rows.length - 1; i >= 0; i--) {
-                    const rowMenu = (rows[i].get('메뉴') || rows[i].get('선택한 메뉴') || (rows[i]._rawData ? rows[i]._rawData[1] : null))?.toString().trim();
+                    let rowMenu = null;
+                    const _raw = rows[i]._rawData || [];
+                    try {
+                        rowMenu = (rows[i].get('메뉴') || rows[i].get('선택한 메뉴'))?.toString().trim();
+                    } catch (e) { }
+
+                    if (!rowMenu && _raw.length > 0) {
+                        rowMenu = _raw.length >= 2 ? _raw[1]?.toString().trim() : _raw[0]?.toString().trim();
+                    }
+
                     if (rowMenu === menu) {
                         await rows[i].delete();
                         return res.status(200).json({ success: true, message: '투표가 취소되었습니다.' });
